@@ -194,14 +194,15 @@ class CourtTrajectoryVisualizer:
             # 将球场叠加到视频帧的右上角
             h, w = overlay.shape[:2]
             # 计算放置位置，根据视频尺寸缩放边距
-            padding = max(10, int(20 * scale_factor))
+            padding_x = max(10, int(20 * scale_factor))
+            padding_y = max(10, int(20 * scale_factor)) + 20  # 往下 20px
             # 确保ROI区域在frame的有效范围内
-            if frame.shape[0] >= padding+h and frame.shape[1] >= padding+w:
-                roi = frame[padding:padding+h, frame.shape[1]-w-padding:frame.shape[1]-padding]
+            if frame.shape[0] >= padding_y+h and frame.shape[1] >= padding_x+w:
+                roi = frame[padding_y:padding_y+h, frame.shape[1]-w-padding_x:frame.shape[1]-padding_x]
                 if roi.shape == overlay.shape:
                     # 应用半透明效果
                     cv2.addWeighted(overlay, 0.7, roi, 0.3, 0, roi)
-                    frame[padding:padding+h, frame.shape[1]-w-padding:frame.shape[1]-padding] = roi
+                    frame[padding_y:padding_y+h, frame.shape[1]-w-padding_x:frame.shape[1]-padding_x] = roi
                 
         except Exception as e:
             print(f"绘制球场轨迹出错: {e}")
