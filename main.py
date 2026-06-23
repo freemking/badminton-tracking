@@ -32,8 +32,10 @@ def main():
 
     if args.language == 'en':
         from badminton_analysis.visualization.player_positions_en import analyze_player_positions
+        from badminton_analysis.visualization.ball_trajectory_en import analyze_ball_trajectory
     else:
         from badminton_analysis.visualization.player_positions_zh import analyze_player_positions
+        from badminton_analysis.visualization.ball_trajectory_zh import analyze_ball_trajectory
 
     system = BadmintonAnalysisSystem(
         args.video_path,
@@ -59,9 +61,33 @@ def main():
     system.process_video()
 
     if args.visualize_positions == 'true':
+        # 球员位置分析
         print("\n开始生成球员位置可视化...")
-        analyze_player_positions(system.detections_path, os.path.join(system.save_dir, 'position_visualizations'), fps=system.fps)
+        try:
+            success = analyze_player_positions(
+                system.detections_path,
+                os.path.join(system.save_dir, 'position_visualizations'),
+                fps=system.fps
+            )
+            if not success:
+                print("球员位置分析失败，继续后续分析...")
+        except Exception as e:
+            print(f"球员位置分析异常: {e}")
+            print("继续后续分析...")
         print("球员位置可视化完成")
+
+        # 球路轨迹分析（独立于球员位置分析，即使球员位置分析失败也会执行）
+        print("\n开始生成球路轨迹可视化...")
+        try:
+            analyze_ball_trajectory(
+                system.detections_path,
+                system.metadata_path,
+                os.path.join(system.save_dir, 'ball_trajectory_visualizations'),
+                fps=system.fps
+            )
+        except Exception as e:
+            print(f"球路轨迹分析异常: {e}")
+        print("球路轨迹可视化完成")
 
 if __name__ == "__main__":
     main()

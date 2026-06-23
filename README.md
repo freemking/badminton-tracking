@@ -1,43 +1,4 @@
-﻿# Good-Badminton: AI 羽毛球鹰眼系统 🏸
-
-<div align="center">
-
-[![GitHub stars](https://img.shields.io/github/stars/yo-WASSUP/Good-Badminton?style=social)](https://github.com/yo-WASSUP/Good-Badminton/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/yo-WASSUP/Good-Badminton?style=social)](https://github.com/yo-WASSUP/Good-Badminton/network/members)
-[![GitHub license](https://img.shields.io/github/license/yo-WASSUP/Good-Badminton)](https://github.com/yo-WASSUP/Good-Badminton/blob/main/LICENSE)
-
-**基于计算机视觉的羽毛球比赛视频分析工具**
-
-[中文](README.md) | [English](README_EN.md)
-
-</div>
-
-## 🎬 效果预览
-
-![Good-Badminton 分析结果预览](assets/demo.gif)
-
-视频效果在 `assets/demo.mp4`。
-
-## 🆕 更新日志
-- **2026-06-20**：正式开源。
-- **2026-06-17**：整理项目介绍文档。
-- **当前版本**：支持球员姿态检测、羽毛球检测、球场坐标映射、轨迹统计、热力图/散点图和带标注视频输出。
-- **实验功能**：击球点分析和技术动作统计仍在迭代中，适合研究和二次开发使用。
-
-## 🔮 开发计划
-
-- [x] 羽毛球比赛视频逐帧分析
-- [x] RTMPose / RTMO / YOLO Pose 多姿态模型支持
-- [x] YOLO 羽毛球检测模型接入
-- [x] 手动球场标注与球场坐标映射
-- [x] 球员移动轨迹、速度、距离和回合统计
-- [x] 中文 / 英文可视化文字
-- [x] 热力图、散点图和检测数据导出
-- [ ] 更稳定的击球点识别
-- [ ] 更精确的羽毛球检测模型
-- [ ] 更完整的技术动作统计
-- [ ] 自动球场关键点检测
-- [ ] 批量视频分析工作流
+﻿# badminton-tracking: 羽毛球视频分析工具
 
 ---
 
@@ -66,15 +27,6 @@
 
 默认依赖使用 CPU 版 PyTorch 和 ONNX Runtime。
 
-### Windows
-
-```bash
-python -m venv .venv
-.\.venv\Scripts\activate
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
-
 ### Linux / macOS
 
 ```bash
@@ -83,70 +35,6 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
-
-### GPU 加速（Windows / NVIDIA）
-
-前置要求：
-
-- 已安装 NVIDIA 显卡驱动，`nvidia-smi` 可以正常输出显卡信息。
-- 推荐使用 CUDA 12.1 对应的 PyTorch wheel。
-- 如果遇到 DLL 加载失败，先安装或修复 Microsoft Visual C++ Redistributable 2015-2022 x64。
-
-PowerShell：
-
-```bash
-.\.venv\Scripts\activate
-
-pip uninstall -y torch torchvision onnxruntime onnxruntime-gpu
-pip install torch==2.5.1+cu121 torchvision==0.20.1+cu121 --index-url https://download.pytorch.org/whl/cu121
-pip install onnxruntime-gpu==1.20.1
-```
-
-验证 GPU 是否生效：
-
-```bash
-python -c "import torch; print('torch:', torch.__version__); print('cuda:', torch.cuda.is_available()); print('gpu:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'not available')"
-python -c "import onnxruntime as ort; print(ort.__version__); print(ort.get_available_providers())"
-```
-
-期望看到：
-
-```text
-cuda: True
-CUDAExecutionProvider
-```
-
-> 注意：安装 GPU 版 ONNX Runtime 后，`pip check` 可能提示 `rtmlib requires onnxruntime, which is not installed`。只要 provider 验证能看到 `CUDAExecutionProvider`，就不要再安装 CPU 版 `onnxruntime`，否则可能覆盖 GPU 包。
-
-切回 CPU 版：
-
-```bash
-pip install --force-reinstall -r requirements.txt
-```
-
-## 📦 模型准备
-
-羽毛球检测默认使用本项目发布的 YOLO 权重。请从 GitHub Release 下载 `yolo11s-ball.pt`：
-
-```text
-https://github.com/yo-WASSUP/Good-Badminton/releases
-```
-
-下载后放到：
-
-```text
-weights/yolo11s-ball.pt
-```
-
-RTMPose / RTMO 可以使用本地 ONNX 模型文件：
-
-```text
-weights/yolox_nano_8xb8-300e_humanart-40f6f0d0.onnx
-weights/rtmpose-s_simcc-body7_pt-body7_420e-256x192-acd4a1ef_20230504.onnx
-weights/rtmo-s_8xb32-600e_body7-640x640-dac2bf74_20231211.onnx
-```
-
-本地 RTMPose / RTMO 文件不存在时，`rtmlib` 可能会尝试在线下载到用户缓存目录。
 
 ## 📝 使用指南
 
@@ -249,11 +137,6 @@ RTMPose 模型档位：
 - `position_visualizations/heatmaps/`：球员位置热力图。
 - `position_visualizations/scatter_plots/`：球员位置散点图。
 
-### 位置可视化示例
-
-| 热力图 | 散点图 |
-| --- | --- |
-| ![球员位置热力图示例](assets/match_heatmap.png) | ![球员位置散点图示例](assets/match_scatter.png) |
 
 ## 🧩 项目结构
 
@@ -268,11 +151,3 @@ badminton_analysis/
 ├── tracking/        # 球员追踪
 └── visualization/   # 视频叠加层、统计图和位置图
 ```
-
-## 🙏 致谢
-
-感谢 TrackNetV2 羽毛球数据集。 感谢RTMPose的人体姿态检测算法。感谢Ultralytics。
-
-## 📄 许可证
-
-本项目代码和 `weights/yolo11s-ball.pt` 使用 Apache License 2.0。随 Release 提供的 RTMPose / RTMO / YOLOX ONNX 权重来自 OpenMMLab / RTMPose 生态，按其上游 Apache License 2.0 授权使用，并保留原始归属。
