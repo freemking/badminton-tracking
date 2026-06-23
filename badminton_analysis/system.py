@@ -199,7 +199,7 @@ class BadmintonAnalysisSystem:
         self.fps = fps
         
 
-        template_path = self._get_template_path()
+        template_path = self._get_template_path(cap)
         template_gray, template_color = self._load_template(template_path, cap)
         
 
@@ -405,8 +405,8 @@ class BadmintonAnalysisSystem:
                 cv2.imwrite(os.path.join(self.images_save_dir, f"{frame_count}.png"), frame)
         return frame, detect_frame_count, is_court
 
-    def _get_template_path(self):
-        """Get the court template image path."""
+    def _get_template_path(self, cap):
+        """Get the court template image path.  Auto-extract from video if auto_court enabled."""
         if self.template_path:
             if not os.path.exists(self.template_path):
                 raise FileNotFoundError(
@@ -414,6 +414,11 @@ class BadmintonAnalysisSystem:
                 )
             return self.template_path
 
+        # 自动从视频中提取帧作为模板
+        if self.auto_court:
+            return self._extract_template_from_video(cap)
+
+        # 回退到手动选择
         try:
             root = tk.Tk()
             root.withdraw()
@@ -433,6 +438,33 @@ class BadmintonAnalysisSystem:
                 "No court template image selected. Pass --template-path to run "
                 "without the file picker."
             )
+        return template_path
+
+    def _extract_template_from_video(self, cap):
+        """自动从视频中提取一帧作为球场模板。"""
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if total_frames <= 0:
+            total_frames = 1
+
+        # 取视频 15% 位置的帧（通常在比赛画面中）
+        extract_frame = max(1, int(total_frames * 0.15))
+        cap.set(cv2.CAP_PROP_POS_FRAMES, extract_frame)
+
+        ret, frame = cap.read()
+        if not ret or frame is None:
+            # 回退到第一帧
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ret, frame = cap.read()
+            if not ret or frame is None:
+                raise RuntimeError("无法从视频中提取模板帧，请使用 --template-path 手动指定")
+
+        # 保存到输出目录
+        template_path = os.path.join(self.save_dir, "_auto_template.png")
+        cv2.imwrite(template_path, frame)
+        print(f"已自动从视频提取模板帧（第 {extract_frame} 帧），保存至: {template_path}")
+
+        # 重置到视频开头
+        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
         return template_path
 
     def _load_template(self, template_path, cap):

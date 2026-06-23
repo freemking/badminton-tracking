@@ -53,12 +53,11 @@ python main.py --video-path videos/demo.mp4
 python main.py --video-path videos/demo.mp4
 ```
 
-3. 如果没有传 `--template-path`，程序会弹出文件选择框，让你选择一张球场模板图。
-4. **默认启用自动球场检测**：程序会通过颜色分割、霍夫线检测等策略自动识别球场四个角点。成功后会打印角点坐标并保存缓存。
-5. 如果自动检测失败，程序会自动回退到**手动标注**：按图片顶部提示依次点击球场四个角点（左上、右上、右下、左下）。
-6. 标注结果会缓存到 `results/<视频文件名>/court_annotations.txt`，再次运行直接复用。
-7. 如需强制手动标注，使用 `--auto-court false`。
-8. 分析结束后，查看 `results/<视频文件名>/detect_<视频文件名>.mp4`、`detections.jsonl` 和 `position_visualizations/`。
+3. **模板图片自动提取**：程序自动从视频 15% 位置提取一帧作为球场模板图，保存到输出目录。
+4. **默认启用自动球场检测**：程序会通过颜色分割、霍夫线检测等策略自动识别球场四个角点。
+5. 如需要，可手动指定模板：`--template-path your_template.png`。如需手动标注角点：`--auto-court false`。
+6. 检测结果会缓存到 `results/<视频文件名>/court_annotations.txt`，再次运行直接复用。
+7. 分析结束后，查看 `results/<视频文件名>/detect_<视频文件名>.mp4`、`detections.jsonl` 和 `position_visualizations/`。
 
 为什么要标注球场四点：
 
