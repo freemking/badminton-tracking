@@ -194,7 +194,7 @@ class CourtTrajectoryVisualizer:
             # 将球场叠加到视频帧的右上角
             h, w = overlay.shape[:2]
             # 计算放置位置，根据视频尺寸缩放边距
-            padding_x = max(10, int(20 * scale_factor))
+            padding_x = max(10, int(20 * scale_factor)) + 40  # 往左 40px
             padding_y = max(10, int(20 * scale_factor)) + 20  # 往下 20px
             # 确保ROI区域在frame的有效范围内
             if frame.shape[0] >= padding_y+h and frame.shape[1] >= padding_x+w:
