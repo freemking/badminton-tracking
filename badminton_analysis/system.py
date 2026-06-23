@@ -8,7 +8,7 @@ import argparse
 
 def load_runtime_dependencies():
     """Load heavy runtime dependencies after argparse has handled --help."""
-    global cv2, np, YOLO, CourtMapper, annotate_court, compute_expanded_roi, PlayerTracker
+    global cv2, np, YOLO, CourtMapper, annotate_court, compute_expanded_roi, auto_detect_court, PlayerTracker
     global CourtTrajectoryVisualizer, ShuttlecockTracker
     global PlayerPoseVisualizer, StatsVisualizer, RTMPoseProcessor, YOLOPoseProcessor, vap
     global JsonlDetectionWriter, write_json, SCHEMA_VERSION
