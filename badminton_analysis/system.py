@@ -198,6 +198,7 @@ class BadmintonAnalysisSystem:
 
         self.fps = fps
         self.shuttlecock_tracker.fps = fps
+        self.shuttlecock_tracker.kf.dt = 1.0 / fps if fps > 0 else 1.0 / 30
 
         template_path = self._get_template_path(cap)
         template_gray, template_color = self._load_template(template_path, cap)

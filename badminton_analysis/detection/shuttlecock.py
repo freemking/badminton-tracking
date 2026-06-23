@@ -10,6 +10,111 @@ except Exception:
     torch = None
 
 
+# ============================================================
+# 羽毛球卡尔曼滤波器 — 平滑位置 + 速度估计，处理掉帧
+# ============================================================
+class BallKalmanFilter:
+    """
+    恒定加速度卡尔曼滤波器，用于从带噪声/丢帧的球场坐标中估计位置和速度。
+    
+    状态向量 (6D): [court_x, court_y, vx, vy, ax, ay]
+    测量向量 (2D): [court_x, court_y]
+    
+    空气阻力通过负加速度（deceleration prior）建模。
+    """
+
+    def __init__(self, fps=30, dt=None):
+        self.fps = fps
+        self.dt = dt or (1.0 / fps)
+
+        # 状态: [x, y, vx, vy, ax, ay]
+        self.x = np.zeros((6, 1), dtype=np.float64)
+        self.P = np.eye(6, dtype=np.float64) * 1000.0   # 初始协方差（高不确定性）
+        self.initialized = False
+
+        # 状态转移矩阵 (恒定加速度模型)
+        dt2 = 0.5 * self.dt * self.dt
+        self.F = np.array([
+            [1, 0, self.dt, 0,      dt2, 0   ],
+            [0, 1, 0,       self.dt, 0,   dt2 ],
+            [0, 0, 1,       0,      self.dt, 0   ],
+            [0, 0, 0,       1,      0,   self.dt],
+            [0, 0, 0,       0,      1,   0   ],
+            [0, 0, 0,       0,      0,   1   ],
+        ], dtype=np.float64)
+
+        # 测量矩阵（只测量位置）
+        self.H = np.array([
+            [1, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0],
+        ], dtype=np.float64)
+
+        # 过程噪声 — 较小的值 = 更平滑但响应更慢
+        # 羽毛球受空气阻力，加速度变化较快
+        q_pos = 0.01       # 位置过程噪声
+        q_vel = 0.5        # 速度过程噪声
+        q_acc = 2.0        # 加速度过程噪声（较高，因为击球时加速剧烈）
+        self.Q = np.diag([q_pos, q_pos, q_vel, q_vel, q_acc, q_acc])
+
+        # 测量噪声 — 基于球场坐标的预期精度
+        self.R = np.diag([0.05, 0.05])  # 约 ±22cm
+
+        # 上一帧的速度（用于降级）
+        self._last_speed_ms = 0.0
+        self._consecutive_miss = 0
+
+    def predict(self):
+        """预测一步（每帧都调用，包括丢帧时）。"""
+        self.x = self.F @ self.x
+        self.P = self.F @ self.P @ self.F.T + self.Q
+        self._consecutive_miss += 1
+
+        # 空气阻力衰减：每帧线性减速 ~2%
+        if self._consecutive_miss > 0 and self.initialized:
+            decay = max(0.85, 1.0 - 0.02 * self._consecutive_miss)
+            self.x[2, 0] *= decay  # vx
+            self.x[3, 0] *= decay  # vy
+            self.x[4, 0] *= 0.95   # ax
+            self.x[5, 0] *= 0.95   # ay
+
+    def update(self, court_x, court_y):
+        """用新的球场坐标测量值更新滤波器。"""
+        z = np.array([[court_x], [court_y]], dtype=np.float64)
+
+        if not self.initialized:
+            self.x[0, 0] = court_x
+            self.x[1, 0] = court_y
+            self.initialized = True
+            self._consecutive_miss = 0
+            return
+
+        # 标准卡尔曼更新
+        y = z - self.H @ self.x                    # innovation
+        S = self.H @ self.P @ self.H.T + self.R    # innovation covariance
+        K = self.P @ self.H.T @ np.linalg.inv(S)    # Kalman gain
+        self.x = self.x + K @ y                     # state update
+        self.P = (np.eye(6) - K @ self.H) @ self.P  # covariance update
+
+        self._consecutive_miss = 0
+        speed = np.sqrt(self.x[2, 0]**2 + self.x[3, 0]**2)
+        self._last_speed_ms = speed
+
+    def get_speed_kmh(self):
+        """返回当前估计速度 (km/h)。"""
+        if not self.initialized:
+            return 0.0
+        # 如果连续丢帧太多，速度自然衰减
+        speed_ms = np.sqrt(self.x[2, 0]**2 + self.x[3, 0]**2)
+        return round(speed_ms * 3.6, 1)
+
+    def reset(self):
+        self.x = np.zeros((6, 1), dtype=np.float64)
+        self.P = np.eye(6, dtype=np.float64) * 1000.0
+        self.initialized = False
+        self._last_speed_ms = 0.0
+        self._consecutive_miss = 0
+
+
 class ShuttlecockTracker:
     """Detect, filter, track, and draw shuttlecock positions."""
 
@@ -49,6 +154,10 @@ class ShuttlecockTracker:
         self.last_detection = self._empty_detection_state()
         self.missing_frames = 0
         self.ball_speed_kmh = 0.0
+        self.kf = BallKalmanFilter(fps=self.fps)
+        # EMA 平滑参数
+        self._ema_speed = 0.0
+        self._ema_alpha = 0.3  # 平滑系数 (0-1, 越小越平滑)
 
         if torch is not None and hasattr(torch, "cuda") and torch.cuda.is_available():
             self.ultra_device = 0
@@ -189,59 +298,48 @@ class ShuttlecockTracker:
         self.shuttlecock_trajectory.append(point)
         self.last_valid_position = point
         self.missing_frames = 0
-        self._update_ball_speed()
+        self._kf_update_from_image_point(point)
 
-    def _update_ball_speed(self):
-        """根据轨迹中最近的点计算球速 (km/h)，使用 court_mapper 做透视校正。"""
+    def _kf_update_from_image_point(self, image_point):
+        """将图像点转为球场坐标，输入卡尔曼滤波器更新速度估计。"""
+        if self.court_mapper is not None:
+            cp = self.court_mapper.image_to_court(list(image_point))
+            if cp is not None and len(cp) >= 2 and cp[0] is not None and cp[1] is not None:
+                self.kf.predict()
+                self.kf.update(float(cp[0]), float(cp[1]))
+                self._ball_speed_from_kf()
+        else:
+            # 无 court_mapper 时用上一版像素距离估算
+            self._update_ball_speed_from_pixels()
+
+    def _ball_speed_from_kf(self):
+        """从卡尔曼滤波器获取速度，经 EMA 平滑后输出。"""
+        raw_kmh = self.kf.get_speed_kmh()
+        self._ema_speed = self._ema_alpha * raw_kmh + (1 - self._ema_alpha) * self._ema_speed
+        self.ball_speed_kmh = round(self._ema_speed, 1)
+
+    def _update_ball_speed_from_pixels(self):
+        """降级：像素位移估算（无 court_mapper 时）。"""
         traj = list(self.shuttlecock_trajectory)
         if len(traj) < 2 or self.fps <= 0:
             self.ball_speed_kmh = 0.0
             return
-
-        # 取最近 N 个点做平滑
-        SMOOTH_WINDOW = 5
-        window = traj[-min(SMOOTH_WINDOW, len(traj)):]
-
-        # 如果配置了 court_mapper，将图像坐标转为球场米制坐标再计算速度
-        if self.court_mapper is not None:
-            court_points = []
-            for px, py in window:
-                cp = self.court_mapper.image_to_court([px, py])
-                if cp is not None and len(cp) >= 2 and cp[0] is not None and cp[1] is not None:
-                    court_points.append(cp)
-            if len(court_points) < 2:
-                self.ball_speed_kmh = 0.0
-                return
-            # 计算球场坐标系下的累计实际距离（米）
-            total_dist_m = 0.0
-            for i in range(len(court_points) - 1):
-                x1, y1 = float(court_points[i][0]), float(court_points[i][1])
-                x2, y2 = float(court_points[i + 1][0]), float(court_points[i + 1][1])
-                total_dist_m += np.hypot(x2 - x1, y2 - y1)
-            # 时间 = 间隔数 / fps（近似，因为轨迹点来自不同检测帧）
-            num_intervals = len(court_points) - 1
-            time_sec = num_intervals / self.fps if self.fps > 0 else 0.001
-            if time_sec <= 0:
-                self.ball_speed_kmh = 0.0
-                return
-            speed_ms = total_dist_m / time_sec
-            self.ball_speed_kmh = round(speed_ms * 3.6, 1)  # m/s → km/h
-        else:
-            # 降级：无 court_mapper 时基于像素位移估算
-            total_dist_px = 0.0
-            for i in range(len(window) - 1):
-                px1, py1 = window[i]
-                px2, py2 = window[i + 1]
-                total_dist_px += np.hypot(px2 - px1, py2 - py1)
-            num_intervals = len(window) - 1
-            time_sec = num_intervals / self.fps if self.fps > 0 else 0.001
-            if time_sec <= 0:
-                self.ball_speed_kmh = 0.0
-                return
-            # 粗略假设球场宽度 6.1m ≈ 画面中球场区域宽度（约 500-800px），取 ~600px
-            scale_m_per_px = 6.1 / 600.0
-            speed_ms = (total_dist_px / num_intervals) / time_sec * scale_m_per_px
-            self.ball_speed_kmh = round(speed_ms * 3.6, 1)
+        window = traj[-min(5, len(traj)):]
+        total_dist_px = 0.0
+        for i in range(len(window) - 1):
+            px1, py1 = window[i]
+            px2, py2 = window[i + 1]
+            total_dist_px += np.hypot(px2 - px1, py2 - py1)
+        num_intervals = len(window) - 1
+        time_sec = num_intervals / self.fps if self.fps > 0 else 0.001
+        if time_sec <= 0:
+            self.ball_speed_kmh = 0.0
+            return
+        scale_m_per_px = 6.1 / 600.0
+        speed_ms = (total_dist_px / num_intervals) / time_sec * scale_m_per_px
+        raw_kmh = speed_ms * 3.6
+        self._ema_speed = self._ema_alpha * raw_kmh + (1 - self._ema_alpha) * self._ema_speed
+        self.ball_speed_kmh = round(self._ema_speed, 1)
 
     def get_ball_speed(self):
         """返回当前球速 (km/h)。"""
@@ -249,6 +347,9 @@ class ShuttlecockTracker:
 
     def _record_missing_detection(self):
         self.missing_frames += 1
+        # 丢帧时卡尔曼滤波器向前预测，速度自然衰减（空气阻力）
+        self.kf.predict()
+        self._ball_speed_from_kf()
         if self.missing_frames > self.max_missing_frames:
             self.last_valid_position = None
 
@@ -297,6 +398,8 @@ class ShuttlecockTracker:
         self.last_detection = self._empty_detection_state()
         self.missing_frames = 0
         self.ball_speed_kmh = 0.0
+        self._ema_speed = 0.0
+        self.kf.reset()
 
     def get_trajectory(self):
         return list(self.shuttlecock_trajectory)
