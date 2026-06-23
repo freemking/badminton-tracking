@@ -217,6 +217,7 @@ class BadmintonAnalysisSystem:
         
 
         self.court_mapper = CourtMapper(corners)
+        self.shuttlecock_tracker.court_mapper = self.court_mapper
         self.player_pose_visualizer.court_mapper = self.court_mapper
         self.player_tracker = PlayerTracker(corners=corners, threshold=mid_height, history_size=30,
                                           detection_writer=self.detection_writer, fps=fps)

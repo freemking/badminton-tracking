@@ -27,6 +27,7 @@ class ShuttlecockTracker:
         max_aspect_ratio=8.0,
         ball_conf=0.10,
         fps=30,
+        court_mapper=None,
     ):
         self.yolo_ball_model = yolo_ball_model
         self.trajectory_length = trajectory_length
@@ -40,6 +41,7 @@ class ShuttlecockTracker:
         self.max_aspect_ratio = max_aspect_ratio
         self.ball_conf = ball_conf
         self.fps = fps
+        self.court_mapper = court_mapper
 
         self.shuttlecock_trajectory = deque(maxlen=trajectory_length)
         self.last_valid_position = None
@@ -190,32 +192,56 @@ class ShuttlecockTracker:
         self._update_ball_speed()
 
     def _update_ball_speed(self):
-        """根据轨迹中最近的点计算球速 (km/h)。"""
+        """根据轨迹中最近的点计算球速 (km/h)，使用 court_mapper 做透视校正。"""
         traj = list(self.shuttlecock_trajectory)
         if len(traj) < 2 or self.fps <= 0:
             self.ball_speed_kmh = 0.0
             return
-        # 取最近 5 个点的平均速度，平滑输出
-        window = traj[-min(5, len(traj)):]
-        total_dist_px = 0.0
-        count = 0
-        for i in range(len(window) - 1):
-            px1, py1 = window[i]
-            px2, py2 = window[i + 1]
-            total_dist_px += np.hypot(px2 - px1, py2 - py1)
-            count += 1
-        if count == 0:
-            self.ball_speed_kmh = 0.0
-            return
-        avg_dist_px = total_dist_px / count
-        # 像素/帧 → 米/帧 → 米/秒 → km/h
-        # 假设球场宽度 6.1m 对应约视频宽度的一半（粗略估算）
-        # 更精确的做法是用 court_mapper，但这里做粗略估算即可
-        speed_ms = (avg_dist_px / self.fps) * self.fps  # 像素/秒
-        # 实际球速取决于相机视角，此处用像素变化作为相对速度指标
-        # 转换为 km/h 需要一个尺度因子，球速范围通常在 50-400 km/h
-        # 用经验缩放：假设 1000px/s ≈ 200 km/h
-        self.ball_speed_kmh = round(avg_dist_px * 0.2, 1)
+
+        # 取最近 N 个点做平滑
+        SMOOTH_WINDOW = 5
+        window = traj[-min(SMOOTH_WINDOW, len(traj)):]
+
+        # 如果配置了 court_mapper，将图像坐标转为球场米制坐标再计算速度
+        if self.court_mapper is not None:
+            court_points = []
+            for px, py in window:
+                cp = self.court_mapper.image_to_court([px, py])
+                if cp is not None and len(cp) >= 2 and cp[0] is not None and cp[1] is not None:
+                    court_points.append(cp)
+            if len(court_points) < 2:
+                self.ball_speed_kmh = 0.0
+                return
+            # 计算球场坐标系下的累计实际距离（米）
+            total_dist_m = 0.0
+            for i in range(len(court_points) - 1):
+                x1, y1 = float(court_points[i][0]), float(court_points[i][1])
+                x2, y2 = float(court_points[i + 1][0]), float(court_points[i + 1][1])
+                total_dist_m += np.hypot(x2 - x1, y2 - y1)
+            # 时间 = 间隔数 / fps（近似，因为轨迹点来自不同检测帧）
+            num_intervals = len(court_points) - 1
+            time_sec = num_intervals / self.fps if self.fps > 0 else 0.001
+            if time_sec <= 0:
+                self.ball_speed_kmh = 0.0
+                return
+            speed_ms = total_dist_m / time_sec
+            self.ball_speed_kmh = round(speed_ms * 3.6, 1)  # m/s → km/h
+        else:
+            # 降级：无 court_mapper 时基于像素位移估算
+            total_dist_px = 0.0
+            for i in range(len(window) - 1):
+                px1, py1 = window[i]
+                px2, py2 = window[i + 1]
+                total_dist_px += np.hypot(px2 - px1, py2 - py1)
+            num_intervals = len(window) - 1
+            time_sec = num_intervals / self.fps if self.fps > 0 else 0.001
+            if time_sec <= 0:
+                self.ball_speed_kmh = 0.0
+                return
+            # 粗略假设球场宽度 6.1m ≈ 画面中球场区域宽度（约 500-800px），取 ~600px
+            scale_m_per_px = 6.1 / 600.0
+            speed_ms = (total_dist_px / num_intervals) / time_sec * scale_m_per_px
+            self.ball_speed_kmh = round(speed_ms * 3.6, 1)
 
     def get_ball_speed(self):
         """返回当前球速 (km/h)。"""
