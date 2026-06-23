@@ -20,6 +20,7 @@ class StatsVisualizer:
         self.language = language
         self.frame_width = frame_width
         self.frame_height = frame_height
+        self._max_ball_speed = 0.0
         
         # 计算缩放因子，基于1920x1080的参考分辨率
         self.scale_factor = 2 * min(self.frame_width / 1920.0, self.frame_height / 1080.0)
@@ -176,15 +177,22 @@ class StatsVisualizer:
 
         # 右上角显示球速
         if ball_speed_kmh > 0:
+            self._max_ball_speed = max(self._max_ball_speed, ball_speed_kmh)
+
             speed_text = f"{ball_speed_kmh:.0f} km/h"
+            max_text = f"max {self._max_ball_speed:.0f} km/h"
             text_w = 140
-            speed_x = self.frame_width - text_w - self.margin - 90  # 再往左 20px
-            speed_y = self.margin + 25  # 往下 20px
-            # 半透明背景
+            speed_x = self.frame_width - text_w - self.margin - 90
+            speed_y = self.margin + 25
+
+            # 半透明背景（两行高度）
             overlay = frame.copy()
-            cv2.rectangle(overlay, (speed_x - 10, speed_y - 5), (speed_x + text_w, speed_y + 35), (0, 0, 0), -1)
+            bg_h = 60
+            cv2.rectangle(overlay, (speed_x - 10, speed_y - 5), (speed_x + text_w, speed_y + bg_h), (0, 0, 0), -1)
             cv2.addWeighted(overlay, 0.5, frame, 0.5, 0, frame)
+
             text_items.append((speed_text, (speed_x, speed_y), self.font_scale * 2.0, (0, 255, 255), self.thickness + 3))
+            text_items.append((max_text, (speed_x, speed_y + 30), self.font_scale * 1.3, (200, 200, 200), self.thickness + 1))
 
         self._draw_text_batch(frame, text_items)
     
