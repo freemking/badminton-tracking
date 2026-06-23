@@ -73,7 +73,7 @@ class BadmintonAnalysisSystem:
                  shuttlecock_max_missing=15, court_threshold=0.3,
                  ball_conf=0.10, max_box_area_ratio=0.015,
                  max_aspect_ratio=8.0, roi_padding_ratio=0.20,
-                 auto_court=True):
+                 auto_court=True, pose_device='auto', pose_backend='onnxruntime'):
         self.video_path = video_path
         self.show_display = show_display
         self.language = language
@@ -90,6 +90,8 @@ class BadmintonAnalysisSystem:
         self.court_threshold = court_threshold
         self.ball_conf = ball_conf
         self.max_box_area_ratio = max_box_area_ratio
+        self.pose_device = pose_device
+        self.pose_backend = pose_backend
         self.max_aspect_ratio = max_aspect_ratio
         self.roi_padding_ratio = roi_padding_ratio
 
@@ -117,7 +119,12 @@ class BadmintonAnalysisSystem:
         if self.pose_family == 'yolo-pose':
             self.rtmpose_processor = YOLOPoseProcessor(model_path=self.yolo_pose_model)
         else:
-            self.rtmpose_processor = RTMPoseProcessor(mode=self.pose_mode, pose_family=self.pose_family)
+            self.rtmpose_processor = RTMPoseProcessor(
+                mode=self.pose_mode,
+                pose_family=self.pose_family,
+                backend=self.pose_backend,
+                device=self.pose_device,
+            )
         self.yolo_ball_model = YOLO(self.ball_model_path)
 
         self.last_stats_update_frame = 0
@@ -198,7 +205,6 @@ class BadmintonAnalysisSystem:
 
         self.fps = fps
         self.shuttlecock_tracker.fps = fps
-        self.shuttlecock_tracker.kf.dt = 1.0 / fps if fps > 0 else 1.0 / 30
 
         template_path = self._get_template_path(cap)
         template_gray, template_color = self._load_template(template_path, cap)
@@ -355,7 +361,7 @@ class BadmintonAnalysisSystem:
 
         centroids, point_left_hands, point_right_hands = self.player_pose_visualizer.detect_players(roi, x1, y1)
         detected_ball_position = self.shuttlecock_tracker.detect_ball(frame, roi_corners=roi_corners)
-        ball_position = self.shuttlecock_tracker.update_trajectory(detected_ball_position, roi_corners)
+        ball_position = self.shuttlecock_tracker.update_trajectory(detected_ball_position, roi_corners, frame_count)
         
 
         self.shuttlecock_tracker.handle_visualization(frame)

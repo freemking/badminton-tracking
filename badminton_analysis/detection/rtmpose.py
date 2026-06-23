@@ -17,17 +17,9 @@ class RTMPoseProcessor:
             ort.set_default_logger_severity(3)
         except Exception:
             pass
-        # 设备自动检测：优先使用 CUDA（若可用）
+        # 设备自动检测：检查 ONNX Runtime 实际可用的 providers，而非 PyTorch CUDA
         if device in (None, 'auto'):
-            selected = 'cpu'
-            try:
-                import torch  # noqa: F401
-                # noinspection PyUnresolvedReferences
-                if torch.cuda.is_available():
-                    selected = 'cuda'
-            except Exception:
-                selected = 'cpu'
-            self.device = selected
+            self.device = self._detect_ort_device()
         else:
             self.device = device
         self.backend = backend
@@ -36,6 +28,28 @@ class RTMPoseProcessor:
         self.init_rtmpose(mode)
         
         self.keypoint_mapping = self.get_keypoint_mapping()
+    
+    @staticmethod
+    def _detect_ort_device():
+        """检测 ONNX Runtime 实际可用的执行设备。"""
+        try:
+            import onnxruntime as ort
+            providers = ort.get_available_providers()
+            # CUDAExecutionProvider 存在且能加载才用 CUDA
+            cuda_providers = [p for p in providers if 'CUDA' in p or 'Tensorrt' in p]
+            if cuda_providers:
+                # 验证 CUDA provider 真的能加载
+                try:
+                    ort.InferenceSession.__new__(ort.InferenceSession)  # no-op
+                except Exception:
+                    pass
+                print(f"ONNX Runtime CUDA providers available: {cuda_providers}")
+                return 'cuda'
+            else:
+                print(f"ONNX Runtime providers: {providers} -> using CPU")
+        except Exception:
+            pass
+        return 'cpu'
     
     def get_models_dir(self):
         """Get model file directory, compatible with development and packaged environments"""
