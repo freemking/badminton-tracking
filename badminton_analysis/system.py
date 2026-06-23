@@ -66,7 +66,9 @@ class BadmintonAnalysisSystem:
                  save_images=False, language='zh', output_dir=None,
                  ball_model_path='weights/yolo11s-ball.pt', template_path=None,
                  pose_mode='balanced', pose_family='rtmpose',
-                 yolo_pose_model='yolo11n-pose.pt', show_pose_roi=True):
+                 yolo_pose_model='yolo11n-pose.pt', show_pose_roi=True,
+                 shuttlecock_max_jump=500, shuttlecock_prediction_gate=600,
+                 shuttlecock_max_missing=15):
         self.video_path = video_path
         self.show_display = show_display
         self.language = language
@@ -76,6 +78,9 @@ class BadmintonAnalysisSystem:
         self.pose_family = pose_family
         self.yolo_pose_model = yolo_pose_model
         self.show_pose_roi = show_pose_roi
+        self.shuttlecock_max_jump = shuttlecock_max_jump
+        self.shuttlecock_prediction_gate = shuttlecock_prediction_gate
+        self.shuttlecock_max_missing = shuttlecock_max_missing
 
 
         self.show_skeletons = show_skeletons
@@ -131,7 +136,10 @@ class BadmintonAnalysisSystem:
             yolo_ball_model=self.yolo_ball_model,
             trajectory_length=30,
             show_trajectory=self.show_shuttlecock_trajectory,
-            show_performance_stats=self.show_performance_stats
+            show_performance_stats=self.show_performance_stats,
+            max_jump_pixels=self.shuttlecock_max_jump,
+            prediction_gate_pixels=self.shuttlecock_prediction_gate,
+            max_missing_frames=self.shuttlecock_max_missing,
         )
         
         self.player_pose_visualizer = PlayerPoseVisualizer(

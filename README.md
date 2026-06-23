@@ -55,9 +55,6 @@ python main.py --video-path videos/demo.mp4
 
 3. 如果没有传 `--template-path`，程序会弹出文件选择框，让你选择一张球场模板图。模板图通常选视频里视角稳定、球场线清楚的一帧。
 4. 程序会打开球场标注窗口。按图片顶部提示，依次点击球场四个角点：左上、右上、右下、左下。
-
-![球场标注示例](assets/label_court_example.png)
-
 5. 点完四个点后，窗口会显示绿色球场框和蓝色姿态检测 ROI 框。ROI 由程序根据球场自动生成。
 6. 标注结果会保存到 `results/<视频文件名>/court_annotations.txt`。同一个输出目录下再次运行会复用这个文件，不会重复要求标注。
 7. 分析结束后，查看 `results/<视频文件名>/detect_<视频文件名>.mp4`、`detections.jsonl` 和 `position_visualizations/`。

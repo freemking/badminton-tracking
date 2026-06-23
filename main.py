@@ -26,6 +26,9 @@ def main():
     parser.add_argument('--visualize-positions', choices=['true', 'false'], default='true', help='是否生成球员位置热力图和散点图，默认 true')
     parser.add_argument('--audio', choices=['true', 'false'], default='true', help='是否保留原视频音频，默认 true')
     parser.add_argument('--language', default='zh', choices=['zh', 'en'], help='选择界面语言 (zh/en)')
+    parser.add_argument('--shuttlecock-max-jump', default=500, type=int, help='球跟踪最大跳跃像素，默认 500（增大可提高检测率）')
+    parser.add_argument('--shuttlecock-prediction-gate', default=600, type=int, help='球跟踪预测门控像素，默认 600（增大可提高检测率）')
+    parser.add_argument('--shuttlecock-max-missing', default=10, type=int, help='球跟踪最大连续丢失帧数，默认 15')
     args = parser.parse_args()
 
     load_runtime_dependencies()
@@ -54,7 +57,10 @@ def main():
         pose_mode=args.pose_mode,
         pose_family=args.pose_family,
         yolo_pose_model=args.yolo_pose_model,
-        show_pose_roi=args.pose_roi == 'true'
+        show_pose_roi=args.pose_roi == 'true',
+        shuttlecock_max_jump=args.shuttlecock_max_jump,
+        shuttlecock_prediction_gate=args.shuttlecock_prediction_gate,
+        shuttlecock_max_missing=args.shuttlecock_max_missing,
     )
 
     system.keep_audio = args.audio == 'true'
@@ -79,15 +85,18 @@ def main():
         # 球路轨迹分析（独立于球员位置分析，即使球员位置分析失败也会执行）
         print("\n开始生成球路轨迹可视化...")
         try:
-            analyze_ball_trajectory(
+            success = analyze_ball_trajectory(
                 system.detections_path,
                 system.metadata_path,
                 os.path.join(system.save_dir, 'ball_trajectory_visualizations'),
                 fps=system.fps
             )
+            if success:
+                print("球路轨迹可视化完成")
+            else:
+                print("球路轨迹可视化失败（无有效数据），请尝试增大 --shuttlecock-max-jump 和 --shuttlecock-prediction-gate 参数")
         except Exception as e:
             print(f"球路轨迹分析异常: {e}")
-        print("球路轨迹可视化完成")
 
 if __name__ == "__main__":
     main()

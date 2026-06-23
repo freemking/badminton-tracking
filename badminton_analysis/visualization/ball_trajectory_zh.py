@@ -130,8 +130,14 @@ class BallTrajectoryVisualizer:
             if start_idx < len(frames):
                 rally_segments.append((start_idx, len(frames)))
             
-            # 过滤掉太短的回合（少于 30 帧）
-            rally_segments = [(s, e) for s, e in rally_segments if e - s >= 30]
+            # 过滤掉太短的片段（少于 3 个数据点，降低门槛以适应稀疏检测）
+            MIN_RALLY_RECORDS = 3
+            rally_segments = [(s, e) for s, e in rally_segments if e - s >= MIN_RALLY_RECORDS]
+            
+            # 回退逻辑：如果帧间隔检测未找到任何有效回合，将所有数据视为一个整体
+            if len(rally_segments) == 0 and len(df) >= MIN_RALLY_RECORDS:
+                print(f"帧间隔未检测到有效回合，将所有 {len(df)} 条记录作为整体分析")
+                rally_segments = [(0, len(df))]
             
             print(f"检测到 {len(rally_segments)} 个有效回合")
             

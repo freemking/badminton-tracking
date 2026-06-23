@@ -120,7 +120,14 @@ class BallTrajectoryVisualizer:
             if start_idx < len(frames):
                 rally_segments.append((start_idx, len(frames)))
             
-            rally_segments = [(s, e) for s, e in rally_segments if e - s >= 30]
+            # Filter out segments that are too short (fewer than 3 data points, lowered threshold for sparse detections)
+            MIN_RALLY_RECORDS = 3
+            rally_segments = [(s, e) for s, e in rally_segments if e - s >= MIN_RALLY_RECORDS]
+            
+            # Fallback: if frame-gap detection finds no valid rallies, treat all data as a single rally
+            if len(rally_segments) == 0 and len(df) >= MIN_RALLY_RECORDS:
+                print(f"Frame-gap detection found no valid rallies, treating all {len(df)} records as one rally")
+                rally_segments = [(0, len(df))]
             
             print(f"Detected {len(rally_segments)} valid rallies")
             
