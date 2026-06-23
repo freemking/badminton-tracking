@@ -178,7 +178,7 @@ class StatsVisualizer:
         if ball_speed_kmh > 0:
             speed_text = f"{ball_speed_kmh:.0f} km/h"
             text_w = 140
-            speed_x = self.frame_width - text_w - self.margin - 70  # 往左 60px（20+40）
+            speed_x = self.frame_width - text_w - self.margin - 90  # 再往左 20px
             speed_y = self.margin + 25  # 往下 20px
             # 半透明背景
             overlay = frame.copy()
