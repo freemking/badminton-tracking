@@ -23,6 +23,7 @@ def load_runtime_dependencies():
         from ultralytics import YOLO as _YOLO
         from .court.mapper import CourtMapper as _CourtMapper, annotate_court as _annotate_court
         from .court.mapper import compute_expanded_roi as _compute_expanded_roi
+        from .court.detector import auto_detect_court as _auto_detect_court
         from .tracking.player import PlayerTracker as _PlayerTracker
         from .visualization.court_trajectory import CourtTrajectoryVisualizer as _CourtTrajectoryVisualizer
         from .detection.shuttlecock import ShuttlecockTracker as _ShuttlecockTracker
@@ -46,6 +47,7 @@ def load_runtime_dependencies():
     CourtMapper = _CourtMapper
     annotate_court = _annotate_court
     compute_expanded_roi = _compute_expanded_roi
+    auto_detect_court = _auto_detect_court
     PlayerTracker = _PlayerTracker
     CourtTrajectoryVisualizer = _CourtTrajectoryVisualizer
     ShuttlecockTracker = _ShuttlecockTracker
@@ -70,7 +72,8 @@ class BadmintonAnalysisSystem:
                  shuttlecock_max_jump=1000, shuttlecock_prediction_gate=1200,
                  shuttlecock_max_missing=15, court_threshold=0.3,
                  ball_conf=0.10, max_box_area_ratio=0.015,
-                 max_aspect_ratio=8.0, roi_padding_ratio=0.20):
+                 max_aspect_ratio=8.0, roi_padding_ratio=0.20,
+                 auto_court=True):
         self.video_path = video_path
         self.show_display = show_display
         self.language = language
@@ -83,6 +86,7 @@ class BadmintonAnalysisSystem:
         self.shuttlecock_max_jump = shuttlecock_max_jump
         self.shuttlecock_prediction_gate = shuttlecock_prediction_gate
         self.shuttlecock_max_missing = shuttlecock_max_missing
+        self.auto_court = auto_court
         self.court_threshold = court_threshold
         self.ball_conf = ball_conf
         self.max_box_area_ratio = max_box_area_ratio
@@ -461,21 +465,44 @@ class BadmintonAnalysisSystem:
         return self.video_writer
 
     def _setup_court_annotation(self, template_color):
-        """Set up court annotation."""
+        """Set up court annotation. Try auto-detection first, fall back to manual."""
 
-        if os.path.exists(os.path.join(self.save_dir, 'court_annotations.txt')):
-            with open(os.path.join(self.save_dir, 'court_annotations.txt'), 'r') as f:
+        corners = None
+        roi_corners = None
+        mid_height = None
+
+        # 如果已有缓存的标注文件，直接加载
+        cache_path = os.path.join(self.save_dir, 'court_annotations.txt')
+        if os.path.exists(cache_path):
+            with open(cache_path, 'r') as f:
                 corners = eval(f.readline().split('=')[1])
                 f.readline()
                 mid_height = eval(f.readline().split('=')[1])
                 roi_corners = compute_expanded_roi(corners, template_color.shape)
+            print("已加载缓存的球场标注")
+        elif self.auto_court:
+            # 尝试自动检测
+            print("\n" + "="*50)
+            print("  自动球场检测")
+            print("="*50)
+            corners, roi_corners, mid_height = auto_detect_court(template_color)
+
+            if corners and len(corners) == 4:
+                print("自动球场检测成功！")
+                print(f"  角点: {corners}")
+            else:
+                print("自动检测失败，切换到手动标注模式...")
+                corners, roi_corners, mid_height = annotate_court(template_color)
         else:
             corners, roi_corners, mid_height = annotate_court(template_color)
-       
-        if not corners or not roi_corners or len(corners) != 4 or len(roi_corners) != 2:
-            raise RuntimeError("Court annotation is incomplete: click 4 court corners in order. ROI is generated automatically.")
 
-        with open(os.path.join(self.save_dir, 'court_annotations.txt'), 'w') as f:
+        if not corners or not roi_corners or len(corners) != 4 or len(roi_corners) != 2:
+            raise RuntimeError(
+                "Court annotation is incomplete: unable to detect or annotate court corners. "
+                "Try using --auto-court false for manual annotation."
+            )
+
+        with open(cache_path, 'w') as f:
             f.write(f"corners={corners}\n")
             f.write(f"roi_corners={roi_corners}\n")
             f.write(f"mid_height={mid_height}\n")

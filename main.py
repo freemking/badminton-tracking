@@ -34,6 +34,7 @@ def main():
     parser.add_argument('--ball-box-area-ratio', default=0.015, type=float, help='球检测框最大面积占比，默认 0.015（增大可容纳更大的检测框）')
     parser.add_argument('--ball-aspect-ratio', default=8.0, type=float, help='球检测框最大宽高比，默认 8.0（增大可容纳运动模糊的椭圆框）')
     parser.add_argument('--ball-roi-padding', default=0.20, type=float, help='球检测 ROI 扩展比例，默认 0.20（增大可检测更靠近边缘的球）')
+    parser.add_argument('--auto-court', choices=['true', 'false'], default='true', help='是否自动检测球场角点，默认 true。设为 false 使用手动标注')
     args = parser.parse_args()
 
     load_runtime_dependencies()
@@ -71,6 +72,7 @@ def main():
         max_box_area_ratio=args.ball_box_area_ratio,
         max_aspect_ratio=args.ball_aspect_ratio,
         roi_padding_ratio=args.ball_roi_padding,
+        auto_court=args.auto_court == 'true',
     )
 
     system.keep_audio = args.audio == 'true'

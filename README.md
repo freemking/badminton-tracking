@@ -53,11 +53,12 @@ python main.py --video-path videos/demo.mp4
 python main.py --video-path videos/demo.mp4
 ```
 
-3. 如果没有传 `--template-path`，程序会弹出文件选择框，让你选择一张球场模板图。模板图通常选视频里视角稳定、球场线清楚的一帧。
-4. 程序会打开球场标注窗口。按图片顶部提示，依次点击球场四个角点：左上、右上、右下、左下。
-5. 点完四个点后，窗口会显示绿色球场框和蓝色姿态检测 ROI 框。ROI 由程序根据球场自动生成。
-6. 标注结果会保存到 `results/<视频文件名>/court_annotations.txt`。同一个输出目录下再次运行会复用这个文件，不会重复要求标注。
-7. 分析结束后，查看 `results/<视频文件名>/detect_<视频文件名>.mp4`、`detections.jsonl` 和 `position_visualizations/`。
+3. 如果没有传 `--template-path`，程序会弹出文件选择框，让你选择一张球场模板图。
+4. **默认启用自动球场检测**：程序会通过颜色分割、霍夫线检测等策略自动识别球场四个角点。成功后会打印角点坐标并保存缓存。
+5. 如果自动检测失败，程序会自动回退到**手动标注**：按图片顶部提示依次点击球场四个角点（左上、右上、右下、左下）。
+6. 标注结果会缓存到 `results/<视频文件名>/court_annotations.txt`，再次运行直接复用。
+7. 如需强制手动标注，使用 `--auto-court false`。
+8. 分析结束后，查看 `results/<视频文件名>/detect_<视频文件名>.mp4`、`detections.jsonl` 和 `position_visualizations/`。
 
 为什么要标注球场四点：
 
@@ -109,6 +110,7 @@ RTMPose 模型档位：
 --pose-mode                  RTMPose / RTMO 档位：lightweight、balanced、performance
 --yolo-pose-model            YOLO pose 模型路径或模型名，默认 yolo11n-pose.pt
 --template-path              球场模板图路径；不传时会弹出文件选择框
+--auto-court true|false              是否自动检测球场角点，默认 true。设为 false 使用手动标注
 --pose-roi true|false                是否显示姿态检测 ROI 框，默认 true
 --display true|false                 是否显示 OpenCV 预览窗口，默认 true
 --skeletons true|false               是否显示人体骨架，默认 true
@@ -170,7 +172,7 @@ python main.py --video-path videos/demo.mp4 \
 main.py              # 命令行入口和参数解析，保持 python main.py ... 的运行方式
 badminton_analysis/
 ├── system.py        # 视频分析主流程 BadmintonAnalysisSystem
-├── court/           # 球场标注与坐标映射
+├── court/           # 球场自动检测、标注与坐标映射
 ├── data/            # JSON / JSONL 输出
 ├── detection/       # 羽毛球检测与姿态检测
 ├── media/           # 视频音频处理
