@@ -174,16 +174,17 @@ class StatsVisualizer:
                                self.panel_width, self.panel_height, (255, 0, 255), self.font_scale, self.thickness, 
                                self.line_height, self.background_color, self.background_alpha, text_items)
 
-        # 画面中央显示球速
+        # 右上角显示球速
         if ball_speed_kmh > 0:
             speed_text = f"{ball_speed_kmh:.0f} km/h"
-            speed_x = self.frame_width // 2 - 80
-            speed_y = self.frame_height // 2 - 30
+            text_w = 140
+            speed_x = self.frame_width - text_w - self.margin - 10
+            speed_y = self.margin + 5
             # 半透明背景
             overlay = frame.copy()
-            cv2.rectangle(overlay, (speed_x - 10, speed_y - 10), (speed_x + 160, speed_y + 40), (0, 0, 0), -1)
+            cv2.rectangle(overlay, (speed_x - 10, speed_y - 5), (speed_x + text_w, speed_y + 35), (0, 0, 0), -1)
             cv2.addWeighted(overlay, 0.5, frame, 0.5, 0, frame)
-            text_items.append((speed_text, (speed_x, speed_y), self.font_scale * 2.2, (0, 255, 255), self.thickness + 3))
+            text_items.append((speed_text, (speed_x, speed_y), self.font_scale * 2.0, (0, 255, 255), self.thickness + 3))
 
         self._draw_text_batch(frame, text_items)
     
