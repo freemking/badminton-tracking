@@ -19,12 +19,13 @@ class ShuttlecockTracker:
         trajectory_length=30,
         show_trajectory=True,
         show_performance_stats=False,
-        max_jump_pixels=220,
-        prediction_gate_pixels=260,
-        max_missing_frames=5,
-        roi_padding_ratio=0.08,
-        max_box_area_ratio=0.004,
-        max_aspect_ratio=4.0,
+        max_jump_pixels=1000,
+        prediction_gate_pixels=1200,
+        max_missing_frames=15,
+        roi_padding_ratio=0.20,
+        max_box_area_ratio=0.015,
+        max_aspect_ratio=8.0,
+        ball_conf=0.10,
     ):
         self.yolo_ball_model = yolo_ball_model
         self.trajectory_length = trajectory_length
@@ -36,6 +37,7 @@ class ShuttlecockTracker:
         self.roi_padding_ratio = roi_padding_ratio
         self.max_box_area_ratio = max_box_area_ratio
         self.max_aspect_ratio = max_aspect_ratio
+        self.ball_conf = ball_conf
 
         self.shuttlecock_trajectory = deque(maxlen=trajectory_length)
         self.last_valid_position = None
@@ -48,7 +50,9 @@ class ShuttlecockTracker:
         else:
             self.ultra_device = "cpu"
 
-    def detect_ball(self, frame, conf=0.18, roi_corners=None):
+    def detect_ball(self, frame, conf=None, roi_corners=None):
+        if conf is None:
+            conf = self.ball_conf
         t0 = time.time()
         try:
             ball_results = self.yolo_ball_model(frame, conf=conf, device=self.ultra_device, verbose=False)[0]

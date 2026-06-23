@@ -125,31 +125,30 @@ RTMPose 模型档位：
 
 ### 球检测调优参数
 
-如果球检测数量过少（如整个视频只有几十条记录），可通过以下参数放宽过滤条件：
+所有球检测门槛已默认放宽，通常无需额外调整。如果仍检测到太少记录，可进一步调整：
 
 ```bash
-# 放宽球场模板匹配阈值（默认 0.75），让更多帧被识别为球场视角
-python main.py --video-path videos/demo.mp4 --court-threshold 0.6
-
-# 放宽球跟踪的跳跃距离和预测偏差容忍度
+# 极低置信度 + 极宽松过滤（最大限度提高检测率）
 python main.py --video-path videos/demo.mp4 \
-  --shuttlecock-max-jump 800 \
-  --shuttlecock-prediction-gate 1000 \
-  --shuttlecock-max-missing 20
-
-# 组合使用
-python main.py --video-path videos/demo.mp4 \
-  --court-threshold 0.5 \
-  --shuttlecock-max-jump 1000 \
-  --shuttlecock-prediction-gate 1200 \
-  --shuttlecock-max-missing 30
+  --court-threshold 0.2 \
+  --ball-conf 0.05 \
+  --shuttlecock-max-jump 2000 \
+  --shuttlecock-prediction-gate 2500 \
+  --shuttlecock-max-missing 30 \
+  --ball-box-area-ratio 0.03 \
+  --ball-aspect-ratio 12.0 \
+  --ball-roi-padding 0.30
 ```
 
 ```text
---court-threshold             球场模板匹配阈值 (0.0-1.0)，默认 0.75。降低可匹配更多帧
---shuttlecock-max-jump        球跟踪最大跳跃像素，默认 500。增大可提高检测率
---shuttlecock-prediction-gate 球跟踪预测门控像素，默认 600。增大可提高检测率
---shuttlecock-max-missing     球跟踪最大连续丢失帧数，默认 15。增大允许更长的中断恢复
+--court-threshold             球场模板匹配阈值 (0.0-1.0)，默认 0.3
+--ball-conf                   YOLO 球检测置信度，默认 0.10（原 0.18）
+--ball-box-area-ratio         球检测框最大面积占比，默认 0.015（原 0.004）
+--ball-aspect-ratio           球检测框最大宽高比，默认 8.0（原 4.0）
+--ball-roi-padding            球检测 ROI 扩展比例，默认 0.20（原 0.08）
+--shuttlecock-max-jump        球跟踪最大跳跃像素，默认 1000（原 220）
+--shuttlecock-prediction-gate 球跟踪预测门控像素，默认 1200（原 260）
+--shuttlecock-max-missing     球跟踪最大连续丢失帧数，默认 15（原 5）
 ```
 
 ## 📊 输出结果

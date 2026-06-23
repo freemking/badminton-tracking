@@ -29,7 +29,11 @@ def main():
     parser.add_argument('--shuttlecock-max-jump', default=1000, type=int, help='球跟踪最大跳跃像素，默认 1000（增大可提高检测率）')
     parser.add_argument('--shuttlecock-prediction-gate', default=1200, type=int, help='球跟踪预测门控像素，默认 1200（增大可提高检测率）')
     parser.add_argument('--shuttlecock-max-missing', default=15, type=int, help='球跟踪最大连续丢失帧数，默认 15')
-    parser.add_argument('--court-threshold', default=0.3, type=float, help='球场模板匹配阈值 (0.0-1.0)，默认 0.3。降低可匹配更多帧，但可能引入非球场画面')
+    parser.add_argument('--court-threshold', default=0.3, type=float, help='球场模板匹配阈值 (0.0-1.0)，默认 0.3')
+    parser.add_argument('--ball-conf', default=0.10, type=float, help='YOLO 球检测置信度阈值，默认 0.10（降低可检出更多球）')
+    parser.add_argument('--ball-box-area-ratio', default=0.015, type=float, help='球检测框最大面积占比，默认 0.015（增大可容纳更大的检测框）')
+    parser.add_argument('--ball-aspect-ratio', default=8.0, type=float, help='球检测框最大宽高比，默认 8.0（增大可容纳运动模糊的椭圆框）')
+    parser.add_argument('--ball-roi-padding', default=0.20, type=float, help='球检测 ROI 扩展比例，默认 0.20（增大可检测更靠近边缘的球）')
     args = parser.parse_args()
 
     load_runtime_dependencies()
@@ -63,6 +67,10 @@ def main():
         shuttlecock_prediction_gate=args.shuttlecock_prediction_gate,
         shuttlecock_max_missing=args.shuttlecock_max_missing,
         court_threshold=args.court_threshold,
+        ball_conf=args.ball_conf,
+        max_box_area_ratio=args.ball_box_area_ratio,
+        max_aspect_ratio=args.ball_aspect_ratio,
+        roi_padding_ratio=args.ball_roi_padding,
     )
 
     system.keep_audio = args.audio == 'true'
