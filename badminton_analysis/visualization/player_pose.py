@@ -118,7 +118,7 @@ class PlayerPoseVisualizer:
         margin = self.court_filter_margin
         return -margin <= x <= 6.1 + margin and -margin <= y <= 13.4 + margin
 
-    def draw_players(self, frame, player_tracker, cached_movement_stats, stats_visualizer=None, rally_count=0):
+    def draw_players(self, frame, player_tracker, cached_movement_stats, stats_visualizer=None, rally_count=0, ball_speed_kmh=0.0):
         if self.show_skeletons and self.current_pose_data is not None:
             t0 = time.time()
             self._draw_skeleton_on_frame(
@@ -151,7 +151,7 @@ class PlayerPoseVisualizer:
 
         if stats_visualizer is not None:
             t0 = time.time()
-            stats_visualizer.draw_player_stats(frame, cached_movement_stats, rally_count)
+            stats_visualizer.draw_player_stats(frame, cached_movement_stats, rally_count, ball_speed_kmh)
             if self.show_performance_stats:
                 print(f"Drawing player stats took {time.time() - t0:.2f} sec")
 

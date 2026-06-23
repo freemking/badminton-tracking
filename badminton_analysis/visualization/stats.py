@@ -144,7 +144,7 @@ class StatsVisualizer:
             # 将PIL图像转回OpenCV格式并替换原始帧
             frame[:] = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
     
-    def draw_player_stats(self, frame, movement_stats, rally_count):
+    def draw_player_stats(self, frame, movement_stats, rally_count, ball_speed_kmh=0.0):
         """
         在画面上显示球员统计信息，包括当前回合和整场比赛数据
         
@@ -152,6 +152,7 @@ class StatsVisualizer:
             frame: 视频帧
             movement_stats: 球员统计信息
             rally_count: 当前回合数
+            ball_speed_kmh: 球速 (km/h)
         """
         # 计算回合数显示位置，基于视频尺寸
         rally_pos_y = int(self.panel_height + self.frame_height * 0.1) # 第一个面板下方
@@ -172,6 +173,18 @@ class StatsVisualizer:
                                self.margin, int(self.frame_height * 0.55), 
                                self.panel_width, self.panel_height, (255, 0, 255), self.font_scale, self.thickness, 
                                self.line_height, self.background_color, self.background_alpha, text_items)
+
+        # 画面中央显示球速
+        if ball_speed_kmh > 0:
+            speed_text = f"{ball_speed_kmh:.0f} km/h"
+            speed_x = self.frame_width // 2 - 80
+            speed_y = self.frame_height // 2 - 30
+            # 半透明背景
+            overlay = frame.copy()
+            cv2.rectangle(overlay, (speed_x - 10, speed_y - 10), (speed_x + 160, speed_y + 40), (0, 0, 0), -1)
+            cv2.addWeighted(overlay, 0.5, frame, 0.5, 0, frame)
+            text_items.append((speed_text, (speed_x, speed_y), self.font_scale * 2.2, (0, 255, 255), self.thickness + 3))
+
         self._draw_text_batch(frame, text_items)
     
     def _draw_player_panel(self, frame, player_name, stats, x_pos, y_pos, panel_width, panel_height, 

@@ -197,7 +197,7 @@ class BadmintonAnalysisSystem:
         
 
         self.fps = fps
-        
+        self.shuttlecock_tracker.fps = fps
 
         template_path = self._get_template_path(cap)
         template_gray, template_color = self._load_template(template_path, cap)
@@ -375,12 +375,15 @@ class BadmintonAnalysisSystem:
 
         t0 = time.time()
 
+        ball_speed = self.shuttlecock_tracker.get_ball_speed()
+
         self.player_pose_visualizer.draw_players(
             frame=frame, 
             player_tracker=self.player_tracker, 
             cached_movement_stats=self.cached_movement_stats,
             stats_visualizer=self.stats_visualizer if self.show_player_stats else None,
-            rally_count=self.rally_count
+            rally_count=self.rally_count,
+            ball_speed_kmh=ball_speed,
         )
         t1 = time.time()
         if self.show_performance_stats:

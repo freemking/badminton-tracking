@@ -109,9 +109,9 @@ class PlayerTracker:
             else:
                 lower_court_centroids.append(centroid)
 
-        if len(upper_court_centroids) > 1:
-            upper_court_centroids.sort(key=lambda p: -p[1])
-            upper_court_centroids = [upper_court_centroids[0]]
+        # 智能去重：当检测到多个上半场/下半场球员时，优先保留离上一次位置最近的
+        upper_court_centroids = self._dedup_centroids(upper_court_centroids, "upper")
+        lower_court_centroids = self._dedup_centroids(lower_court_centroids, "lower")
 
         filtered_centroids = upper_court_centroids + lower_court_centroids
 
@@ -144,6 +144,28 @@ class PlayerTracker:
             player_record["hands"]["left"] = self._point_or_none(left_hand_pos)
         if right_hand_pos:
             player_record["hands"]["right"] = self._point_or_none(right_hand_pos)
+
+    def _dedup_centroids(self, centroids, region):
+        """
+        智能去重：当同一半场检测到多个球员时，优先保留离上一次已知位置最近的那个。
+        如果没有历史位置，则保留最靠近球场中线的（即 Y 最大 for upper / Y 最小 for lower）。
+        """
+        if len(centroids) <= 1:
+            return centroids
+
+        last_player = self.players[region]
+        if last_player is not None:
+            # 有历史位置：保留最近的那个
+            centroids.sort(key=lambda p: np.hypot(p[0] - last_player[0], p[1] - last_player[1]))
+            return [centroids[0]]
+
+        # 无历史位置：保留离中线最近的
+        if region == "upper":
+            # upper 区域 Y 越小越远，Y 越大越接近中线
+            centroids.sort(key=lambda p: -p[1])  # 按 Y 降序（离中线近的优先）
+        else:
+            centroids.sort(key=lambda p: p[1])   # 按 Y 升序（离中线近的优先）
+        return [centroids[0]]
 
     def _update_rally_and_match_stats(self, region, distance, speed):
         capped_speed = round(min(speed, 8.0), 2)

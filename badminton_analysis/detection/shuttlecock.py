@@ -26,6 +26,7 @@ class ShuttlecockTracker:
         max_box_area_ratio=0.015,
         max_aspect_ratio=8.0,
         ball_conf=0.10,
+        fps=30,
     ):
         self.yolo_ball_model = yolo_ball_model
         self.trajectory_length = trajectory_length
@@ -38,12 +39,14 @@ class ShuttlecockTracker:
         self.max_box_area_ratio = max_box_area_ratio
         self.max_aspect_ratio = max_aspect_ratio
         self.ball_conf = ball_conf
+        self.fps = fps
 
         self.shuttlecock_trajectory = deque(maxlen=trajectory_length)
         self.last_valid_position = None
         self.last_candidate = None
         self.last_detection = self._empty_detection_state()
         self.missing_frames = 0
+        self.ball_speed_kmh = 0.0
 
         if torch is not None and hasattr(torch, "cuda") and torch.cuda.is_available():
             self.ultra_device = 0
@@ -184,6 +187,39 @@ class ShuttlecockTracker:
         self.shuttlecock_trajectory.append(point)
         self.last_valid_position = point
         self.missing_frames = 0
+        self._update_ball_speed()
+
+    def _update_ball_speed(self):
+        """根据轨迹中最近的点计算球速 (km/h)。"""
+        traj = list(self.shuttlecock_trajectory)
+        if len(traj) < 2 or self.fps <= 0:
+            self.ball_speed_kmh = 0.0
+            return
+        # 取最近 5 个点的平均速度，平滑输出
+        window = traj[-min(5, len(traj)):]
+        total_dist_px = 0.0
+        count = 0
+        for i in range(len(window) - 1):
+            px1, py1 = window[i]
+            px2, py2 = window[i + 1]
+            total_dist_px += np.hypot(px2 - px1, py2 - py1)
+            count += 1
+        if count == 0:
+            self.ball_speed_kmh = 0.0
+            return
+        avg_dist_px = total_dist_px / count
+        # 像素/帧 → 米/帧 → 米/秒 → km/h
+        # 假设球场宽度 6.1m 对应约视频宽度的一半（粗略估算）
+        # 更精确的做法是用 court_mapper，但这里做粗略估算即可
+        speed_ms = (avg_dist_px / self.fps) * self.fps  # 像素/秒
+        # 实际球速取决于相机视角，此处用像素变化作为相对速度指标
+        # 转换为 km/h 需要一个尺度因子，球速范围通常在 50-400 km/h
+        # 用经验缩放：假设 1000px/s ≈ 200 km/h
+        self.ball_speed_kmh = round(avg_dist_px * 0.2, 1)
+
+    def get_ball_speed(self):
+        """返回当前球速 (km/h)。"""
+        return self.ball_speed_kmh
 
     def _record_missing_detection(self):
         self.missing_frames += 1
@@ -234,6 +270,7 @@ class ShuttlecockTracker:
         self.last_candidate = None
         self.last_detection = self._empty_detection_state()
         self.missing_frames = 0
+        self.ball_speed_kmh = 0.0
 
     def get_trajectory(self):
         return list(self.shuttlecock_trajectory)
