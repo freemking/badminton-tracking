@@ -67,8 +67,8 @@ class BadmintonAnalysisSystem:
                  ball_model_path='weights/yolo11s-ball.pt', template_path=None,
                  pose_mode='balanced', pose_family='rtmpose',
                  yolo_pose_model='yolo11n-pose.pt', show_pose_roi=True,
-                 shuttlecock_max_jump=1000, shuttlecock_prediction_gate=1200,
-                 shuttlecock_max_missing=15, court_threshold=0.3):
+                 shuttlecock_max_jump=500, shuttlecock_prediction_gate=600,
+                 shuttlecock_max_missing=15, court_threshold=0.4):
         self.video_path = video_path
         self.show_display = show_display
         self.language = language

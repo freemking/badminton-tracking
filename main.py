@@ -26,10 +26,10 @@ def main():
     parser.add_argument('--visualize-positions', choices=['true', 'false'], default='true', help='是否生成球员位置热力图和散点图，默认 true')
     parser.add_argument('--audio', choices=['true', 'false'], default='true', help='是否保留原视频音频，默认 true')
     parser.add_argument('--language', default='zh', choices=['zh', 'en'], help='选择界面语言 (zh/en)')
-    parser.add_argument('--shuttlecock-max-jump', default=1000, type=int, help='球跟踪最大跳跃像素，默认 1000（增大可提高检测率）')
-    parser.add_argument('--shuttlecock-prediction-gate', default=1200, type=int, help='球跟踪预测门控像素，默认 1200（增大可提高检测率）')
+    parser.add_argument('--shuttlecock-max-jump', default=500, type=int, help='球跟踪最大跳跃像素，默认 500（增大可提高检测率）')
+    parser.add_argument('--shuttlecock-prediction-gate', default=600, type=int, help='球跟踪预测门控像素，默认 600（增大可提高检测率）')
     parser.add_argument('--shuttlecock-max-missing', default=15, type=int, help='球跟踪最大连续丢失帧数，默认 15')
-    parser.add_argument('--court-threshold', default=0.3, type=float, help='球场模板匹配阈值 (0.0-1.0)，默认 0.3。降低可匹配更多帧，但可能引入非球场画面')
+    parser.add_argument('--court-threshold', default=0.4, type=float, help='球场模板匹配阈值 (0.0-1.0)，默认 0.4。降低可匹配更多帧，但可能引入非球场画面')
     args = parser.parse_args()
 
     load_runtime_dependencies()
