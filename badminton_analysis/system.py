@@ -67,8 +67,8 @@ class BadmintonAnalysisSystem:
                  ball_model_path='weights/yolo11s-ball.pt', template_path=None,
                  pose_mode='balanced', pose_family='rtmpose',
                  yolo_pose_model='yolo11n-pose.pt', show_pose_roi=True,
-                 shuttlecock_max_jump=500, shuttlecock_prediction_gate=600,
-                 shuttlecock_max_missing=15):
+                 shuttlecock_max_jump=1000, shuttlecock_prediction_gate=1200,
+                 shuttlecock_max_missing=15, court_threshold=0.3):
         self.video_path = video_path
         self.show_display = show_display
         self.language = language
@@ -81,6 +81,7 @@ class BadmintonAnalysisSystem:
         self.shuttlecock_max_jump = shuttlecock_max_jump
         self.shuttlecock_prediction_gate = shuttlecock_prediction_gate
         self.shuttlecock_max_missing = shuttlecock_max_missing
+        self.court_threshold = court_threshold
 
 
         self.show_skeletons = show_skeletons
@@ -215,19 +216,45 @@ class BadmintonAnalysisSystem:
         
         frame_count = 0
         detect_frame_count = 0
-
+        court_frame_count = 0
+        error_frame_count = 0
+        
+        print(f"球场模板匹配阈值: {self.court_threshold}")
+        print(f"开始逐帧处理，共 {total_frames} 帧...")
+        
+        progress_interval = max(1, total_frames // 20)  # 每 5% 报告一次进度
 
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
                 break
             frame_count += 1
-            frame, detect_frame_count = self._process_frame(frame, template_gray, corners, roi_corners, frame_count, out, detect_frame_count)
+            
+            try:
+                frame, detect_frame_count, is_court = self._process_frame(
+                    frame, template_gray, corners, roi_corners, frame_count, out, detect_frame_count
+                )
+                if is_court:
+                    court_frame_count += 1
+            except Exception as e:
+                error_frame_count += 1
+                if error_frame_count <= 5:
+                    print(f"警告: 第 {frame_count} 帧处理异常: {e}")
+                # 继续处理下一帧，不中断整个分析
+                continue
+            
+            if frame_count % progress_interval == 0:
+                pct = frame_count / total_frames * 100
+                print(f"进度: {frame_count}/{total_frames} ({pct:.0f}%) | 球场帧: {court_frame_count} | 检测帧: {detect_frame_count} | 异常帧: {error_frame_count}")
 
         self.end_time = time.time()
         processing_time = self.end_time - self.start_time
         
         print(f"\n处理完成:")
+        print(f"视频总帧数: {frame_count}")
+        print(f"球场视角帧数: {court_frame_count} ({court_frame_count/max(1,frame_count)*100:.1f}%)")
+        print(f"实际检测帧数: {detect_frame_count}")
+        print(f"处理异常帧数: {error_frame_count}")
         print(f"原始视频时长: {video_duration:.2f} 秒")
         print(f"处理耗时: {processing_time:.2f} 秒")
         print(f"处理速度比: {processing_time/video_duration:.2f}x")
@@ -273,7 +300,7 @@ class BadmintonAnalysisSystem:
         
         # frame = self.draw_court_roi(frame, corners, roi_corners)
 
-        is_court = self.is_court_view(gray_frame, template_gray)
+        is_court = self.is_court_view(gray_frame, template_gray, threshold=self.court_threshold)
         
         if is_court:
             self.is_court_view_count += 1
@@ -298,7 +325,7 @@ class BadmintonAnalysisSystem:
 
 
         if not is_court:
-            return frame, detect_frame_count
+            return frame, detect_frame_count, is_court
 
         detect_frame_count += 1
 
@@ -362,7 +389,7 @@ class BadmintonAnalysisSystem:
 
             if self.save_images:
                 cv2.imwrite(os.path.join(self.images_save_dir, f"{frame_count}.png"), frame)
-        return frame, detect_frame_count
+        return frame, detect_frame_count, is_court
 
     def _get_template_path(self):
         """Get the court template image path."""

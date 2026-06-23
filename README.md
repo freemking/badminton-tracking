@@ -123,6 +123,35 @@ RTMPose 模型档位：
 --language {zh,en}           选择界面语言
 ```
 
+### 球检测调优参数
+
+如果球检测数量过少（如整个视频只有几十条记录），可通过以下参数放宽过滤条件：
+
+```bash
+# 放宽球场模板匹配阈值（默认 0.75），让更多帧被识别为球场视角
+python main.py --video-path videos/demo.mp4 --court-threshold 0.6
+
+# 放宽球跟踪的跳跃距离和预测偏差容忍度
+python main.py --video-path videos/demo.mp4 \
+  --shuttlecock-max-jump 800 \
+  --shuttlecock-prediction-gate 1000 \
+  --shuttlecock-max-missing 20
+
+# 组合使用
+python main.py --video-path videos/demo.mp4 \
+  --court-threshold 0.5 \
+  --shuttlecock-max-jump 1000 \
+  --shuttlecock-prediction-gate 1200 \
+  --shuttlecock-max-missing 30
+```
+
+```text
+--court-threshold             球场模板匹配阈值 (0.0-1.0)，默认 0.75。降低可匹配更多帧
+--shuttlecock-max-jump        球跟踪最大跳跃像素，默认 500。增大可提高检测率
+--shuttlecock-prediction-gate 球跟踪预测门控像素，默认 600。增大可提高检测率
+--shuttlecock-max-missing     球跟踪最大连续丢失帧数，默认 15。增大允许更长的中断恢复
+```
+
 ## 📊 输出结果
 
 默认输出到 `results/<视频文件名>/`：
@@ -133,6 +162,7 @@ RTMPose 模型档位：
 - `court_annotations.txt`：球场标注坐标缓存。
 - `position_visualizations/heatmaps/`：球员位置热力图。
 - `position_visualizations/scatter_plots/`：球员位置散点图。
+- `ball_trajectory_visualizations/`：球路轨迹可视化，包含各回合球路图和整场比赛汇总图。
 
 
 ## 🧩 项目结构
