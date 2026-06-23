@@ -195,7 +195,7 @@ class CourtTrajectoryVisualizer:
             h, w = overlay.shape[:2]
             # 计算放置位置，根据视频尺寸缩放边距
             padding_x = max(10, int(20 * scale_factor)) + 40  # 往左 40px
-            padding_y = max(10, int(20 * scale_factor)) + 20  # 往下 20px
+            padding_y = max(10, int(20 * scale_factor)) + 50  # 往下 50px（20+30）
             # 确保ROI区域在frame的有效范围内
             if frame.shape[0] >= padding_y+h and frame.shape[1] >= padding_x+w:
                 roi = frame[padding_y:padding_y+h, frame.shape[1]-w-padding_x:frame.shape[1]-padding_x]
